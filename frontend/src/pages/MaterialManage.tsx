@@ -8,16 +8,16 @@ import { useMaterialStore } from '@/stores/materialStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useBudgetStore } from '@/stores/budgetStore'
 import { useAuthStore } from '@/stores/authStore'
-import { createMaterial, updateMaterialStatus } from '@/api/material'
+import { createMaterial } from '@/api/material'
 import { extractErrorMessage } from '@/utils/request'
-import { formatCurrency } from '@/utils/formatBudget'
-import { MaterialCategory, MaterialSpace, PurchaseStatus, Role } from '@/types/enums'
+import { deliveredMaterialCost, formatCurrency } from '@/utils/formatBudget'
+import { budgetCategoryForMaterial, MaterialCategory, MaterialSpace, PurchaseStatus, Role } from '@/types/enums'
 import type { MaterialItem } from '@/types'
 
 const purchaseSteps = [PurchaseStatus.NotPurchased, PurchaseStatus.Ordered, PurchaseStatus.Delivered, PurchaseStatus.Installed]
 
 export default function MaterialManage() {
-  const { materials, fetchMaterials } = useMaterialStore()
+  const { materials, advancingId, fetchMaterials, advanceMaterial } = useMaterialStore()
   const { projects, fetchProjects } = useProjectStore()
   const { budgets, fetchBudgets } = useBudgetStore()
   const user = useAuthStore((state) => state.user)
@@ -46,6 +46,8 @@ export default function MaterialManage() {
 
   const totalCost = filtered.reduce((sum, item) => sum + item.total_price, 0)
   const materialBudget = budgets.filter((b) => b.category === 'Material').reduce((sum, b) => sum + b.budget_amount, 0)
+  // 已交付入账费用：与预算页共用同一计算口径，两侧刷新后看到同一笔费用。
+  const deliveredCost = deliveredMaterialCost(materials, projectId)
 
   const canEdit = user?.role === Role.Admin || user?.role === Role.Designer || user?.role === Role.ProjectManager
   const canProcure = user?.role === Role.Admin || user?.role === Role.Designer || user?.role === Role.Contractor || user?.role === Role.ProjectManager
@@ -68,10 +70,14 @@ export default function MaterialManage() {
     const next = purchaseSteps[current + 1]
     if (!next) return
     try {
-      await updateMaterialStatus(record.id, next)
-      message.success('采购状态已更新')
-      await fetchMaterials(projectId)
+      await advanceMaterial(record.id, next)
+      if (next === PurchaseStatus.Delivered) {
+        message.success(`已交付，${formatCurrency(record.total_price)} 已计入 ${budgetCategoryForMaterial(record.category)} 预算实际花费`)
+      } else {
+        message.success('采购状态已更新')
+      }
     } catch (error) {
+      // 重复交付或并发推进时后端返回冲突，此处直接展示原因。
       message.error(extractErrorMessage(error))
     }
   }
@@ -115,6 +121,7 @@ export default function MaterialManage() {
         <Space size="large">
           <Statistic title="材料费用汇总" value={totalCost} precision={2} prefix="¥" />
           <Statistic title="材料预算" value={materialBudget} precision={2} prefix="¥" />
+          <Statistic title="已交付入账" value={deliveredCost} precision={2} prefix="¥" />
         </Space>
       </Card>
 
@@ -134,7 +141,18 @@ export default function MaterialManage() {
               { title: '数量', dataIndex: 'quantity' },
               { title: '单价', dataIndex: 'unit_price', render: (v) => formatCurrency(v) },
               { title: '总价', dataIndex: 'total_price', render: (v) => formatCurrency(v) },
-              { title: '采购状态', dataIndex: 'purchase_status', render: (v) => <StatusBadge status={v} /> },
+              {
+                title: '采购状态',
+                dataIndex: 'purchase_status',
+                render: (v, record) => (
+                  <Space size={4}>
+                    <StatusBadge status={v} />
+                    {(v === PurchaseStatus.Delivered || v === PurchaseStatus.Installed) ? (
+                      <ProgressTag text={`已入账${budgetCategoryForMaterial(record.category)}`} color="green" />
+                    ) : null}
+                  </Space>
+                ),
+              },
               { title: '使用空间', dataIndex: 'space' },
               {
                 title: '操作',
@@ -143,6 +161,8 @@ export default function MaterialManage() {
                     <Button
                       size="small"
                       icon={<ShoppingCartOutlined />}
+                      loading={advancingId === record.id}
+                      disabled={advancingId !== null}
                       onClick={() => advanceStatus(record)}
                     >
                       推进采购

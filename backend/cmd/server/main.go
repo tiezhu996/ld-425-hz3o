@@ -45,13 +45,14 @@ func main() {
 	constructionRepo := repository.NewConstructionRepository(db)
 	userRepo := repository.NewUserRepository(db)
 	auditRepo := repository.NewAuditLogRepository(db)
+	transactor := repository.NewTransactor(db)
 
 	// 装配服务层。
 	userSvc := service.NewUserService(userRepo, cfg.JWT, log)
 	auditSvc := service.NewAuditService(auditRepo, log)
 	projectSvc := service.NewProjectService(projectRepo, log)
 	designSvc := service.NewDesignService(designRepo, log)
-	materialSvc := service.NewMaterialService(materialRepo, log)
+	materialSvc := service.NewMaterialService(materialRepo, budgetRepo, transactor, log)
 	budgetSvc := service.NewBudgetService(budgetRepo, log)
 	constructionSvc := service.NewConstructionService(constructionRepo, log)
 

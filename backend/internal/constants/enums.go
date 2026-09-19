@@ -38,6 +38,28 @@ const (
 	PurchaseStatusInstalled    = "Installed"
 )
 
+// BudgetCategory 预算类别。
+const (
+	BudgetCategoryDesign    = "Design"
+	BudgetCategoryMaterial  = "Material"
+	BudgetCategoryLabor     = "Labor"
+	BudgetCategoryFurniture = "Furniture"
+	BudgetCategoryAppliance = "Appliance"
+	BudgetCategoryOther     = "Other"
+)
+
+// MaterialCategory 材料品类。
+const (
+	MaterialCategoryTile     = "瓷砖"
+	MaterialCategoryFloor    = "地板"
+	MaterialCategoryPaint    = "油漆"
+	MaterialCategoryLighting = "灯具"
+	MaterialCategoryBathroom = "卫浴"
+	MaterialCategoryHardware = "五金"
+	MaterialCategoryBoard    = "板材"
+	MaterialCategoryOther    = "其他"
+)
+
 // ProjectStatus 项目状态。
 const (
 	ProjectStatusDesigning  = "Designing"
@@ -87,6 +109,10 @@ var (
 	PurchaseStatuses = []string{
 		PurchaseStatusNotPurchased, PurchaseStatusOrdered, PurchaseStatusDelivered, PurchaseStatusInstalled,
 	}
+	BudgetCategories = []string{
+		BudgetCategoryDesign, BudgetCategoryMaterial, BudgetCategoryLabor,
+		BudgetCategoryFurniture, BudgetCategoryAppliance, BudgetCategoryOther,
+	}
 	ProjectStatuses = []string{
 		ProjectStatusDesigning, ProjectStatusQuoting, ProjectStatusInProgress, ProjectStatusCompleted, ProjectStatusArchived,
 	}
@@ -105,4 +131,31 @@ func Contains(items []string, value string) bool {
 		}
 	}
 	return false
+}
+
+// MaterialCategoryBudgetMap 材料品类到预算类别的映射。
+// 材料从已订货推进到已交付时，按项目 + 映射后的预算类别归集实际花费。
+var MaterialCategoryBudgetMap = map[string]string{
+	MaterialCategoryTile:     BudgetCategoryMaterial,
+	MaterialCategoryFloor:    BudgetCategoryMaterial,
+	MaterialCategoryPaint:    BudgetCategoryMaterial,
+	MaterialCategoryLighting: BudgetCategoryMaterial,
+	MaterialCategoryBathroom: BudgetCategoryMaterial,
+	MaterialCategoryHardware: BudgetCategoryMaterial,
+	MaterialCategoryBoard:    BudgetCategoryMaterial,
+	MaterialCategoryOther:    BudgetCategoryOther,
+}
+
+// PurchaseStatusOrder 采购状态推进顺序，值越大越靠后。
+var PurchaseStatusOrder = map[string]int{
+	PurchaseStatusNotPurchased: 0,
+	PurchaseStatusOrdered:      1,
+	PurchaseStatusDelivered:    2,
+	PurchaseStatusInstalled:    3,
+}
+
+// BudgetCategoryForMaterial 返回材料品类对应的预算类别，未知品类返回 false。
+func BudgetCategoryForMaterial(materialCategory string) (string, bool) {
+	category, ok := MaterialCategoryBudgetMap[materialCategory]
+	return category, ok
 }

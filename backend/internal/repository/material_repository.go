@@ -16,6 +16,11 @@ type MaterialRepository interface {
 	ListByProjectID(projectID uint) ([]model.MaterialItem, error)
 	Update(item *model.MaterialItem) error
 	Delete(id uint) error
+	// WithTx 返回绑定到指定事务的仓储，用于跨表原子写入。
+	WithTx(tx *gorm.DB) MaterialRepository
+	// UpdateStatusIfCurrent 仅当当前状态为 from 时才推进到 to，
+	// 返回是否真正生效；并发或重复提交时生效行数为 0，用于防重复入账。
+	UpdateStatusIfCurrent(id uint, from, to string) (bool, error)
 }
 
 // MaterialFilter 材料查询过滤条件。
@@ -95,4 +100,18 @@ func (r *materialRepository) Delete(id uint) error {
 		return fmt.Errorf("delete material item %d: %w", id, err)
 	}
 	return nil
+}
+
+func (r *materialRepository) WithTx(tx *gorm.DB) MaterialRepository {
+	return &materialRepository{db: tx}
+}
+
+func (r *materialRepository) UpdateStatusIfCurrent(id uint, from, to string) (bool, error) {
+	result := r.db.Model(&model.MaterialItem{}).
+		Where("id = ? AND purchase_status = ?", id, from).
+		Update("purchase_status", to)
+	if result.Error != nil {
+		return false, fmt.Errorf("advance material item %d status %s -> %s: %w", id, from, to, result.Error)
+	}
+	return result.RowsAffected == 1, nil
 }

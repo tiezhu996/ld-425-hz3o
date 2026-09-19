@@ -16,6 +16,13 @@ type BudgetRepository interface {
 	ListByProjectID(projectID uint) ([]model.BudgetItem, error)
 	Update(item *model.BudgetItem) error
 	Delete(id uint) error
+	// WithTx 返回绑定到指定事务的仓储，用于跨表原子写入。
+	WithTx(tx *gorm.DB) BudgetRepository
+	// GetByProjectAndCategory 按项目 + 预算类别查找唯一预算项。
+	GetByProjectAndCategory(projectID uint, category string) (*model.BudgetItem, error)
+	// ApplyActualDelta 原子地累加实际花费并按同额重算差异（variance 随 actual 同步增减，
+	// 因为 budget_amount 不变），避免并发交付时的丢失更新。
+	ApplyActualDelta(id uint, delta float64) error
 }
 
 // BudgetFilter 预算查询过滤条件。
@@ -89,6 +96,37 @@ func (r *budgetRepository) Update(item *model.BudgetItem) error {
 func (r *budgetRepository) Delete(id uint) error {
 	if err := r.db.Delete(&model.BudgetItem{}, id).Error; err != nil {
 		return fmt.Errorf("delete budget item %d: %w", id, err)
+	}
+	return nil
+}
+
+func (r *budgetRepository) WithTx(tx *gorm.DB) BudgetRepository {
+	return &budgetRepository{db: tx}
+}
+
+func (r *budgetRepository) GetByProjectAndCategory(projectID uint, category string) (*model.BudgetItem, error) {
+	var item model.BudgetItem
+	if err := r.db.Where("project_id = ? AND category = ?", projectID, category).First(&item).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get budget item by project %d category %s: %w", projectID, category, err)
+	}
+	return &item, nil
+}
+
+func (r *budgetRepository) ApplyActualDelta(id uint, delta float64) error {
+	result := r.db.Model(&model.BudgetItem{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"actual_amount": gorm.Expr("ROUND(actual_amount + ?, 2)", delta),
+			"variance":      gorm.Expr("ROUND(variance + ?, 2)", delta),
+		})
+	if result.Error != nil {
+		return fmt.Errorf("apply actual delta %f to budget item %d: %w", delta, id, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrNotFound
 	}
 	return nil
 }

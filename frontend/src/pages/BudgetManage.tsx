@@ -11,7 +11,7 @@ import { useMaterialStore } from '@/stores/materialStore'
 import { useAuthStore } from '@/stores/authStore'
 import { createBudget } from '@/api/budget'
 import { extractErrorMessage } from '@/utils/request'
-import { formatCurrency } from '@/utils/formatBudget'
+import { deliveredMaterialCost, formatCurrency } from '@/utils/formatBudget'
 import { BudgetCategory, Role } from '@/types/enums'
 import type { BudgetItem } from '@/types'
 
@@ -41,6 +41,8 @@ export default function BudgetManage() {
   const totalBudget = filtered.reduce((sum, item) => sum + item.budget_amount, 0)
   const totalActual = filtered.reduce((sum, item) => sum + item.actual_amount, 0)
   const totalMaterialCost = materials.filter((m) => !projectId || m.project_id === projectId).reduce((sum, m) => sum + m.total_price, 0)
+  // 已交付材料的入账费用：与材料页共用同一计算口径，两侧刷新后看到同一笔费用。
+  const deliveredCost = deliveredMaterialCost(materials, projectId)
 
   const overBudgetItems = filtered.filter((item) => item.variance > 0)
 
@@ -98,6 +100,7 @@ export default function BudgetManage() {
         <StatCard title="预算总额" value={totalBudget} prefix="¥" />
         <StatCard title="实际花费" value={totalActual} prefix="¥" />
         <StatCard title="材料费用" value={totalMaterialCost} prefix="¥" />
+        <StatCard title="已交付材料入账" value={deliveredCost} prefix="¥" />
       </Space>
 
       <Card title="预算 vs 实际" style={{ marginBottom: 16 }}>

@@ -78,4 +78,22 @@ export const DesignPhaseName = ['方案设计', '效果图', '施工图', '软�
 export const MaterialCategory = ['瓷砖', '地板', '油漆', '灯具', '卫浴', '五金', '板材', '其他'] as const
 export const MaterialSpace = ['客厅', '卧室', '厨房', '卫生间', '阳台'] as const
 export const BudgetCategory = ['Design', 'Material', 'Labor', 'Furniture', 'Appliance', 'Other'] as const
+export type BudgetCategory = (typeof BudgetCategory)[number]
+
+// 材料品类 -> 预算类别映射：与后端 internal/constants/enums.go 保持一致。
+// 材料从已订货推进到已交付时，总价按项目 + 映射后的预算类别计入实际花费。
+export const MaterialCategoryBudgetMap: Record<string, BudgetCategory> = {
+  瓷砖: 'Material',
+  地板: 'Material',
+  油漆: 'Material',
+  灯具: 'Material',
+  卫浴: 'Material',
+  五金: 'Material',
+  板材: 'Material',
+  其他: 'Other',
+}
+
+export function budgetCategoryForMaterial(category: string): BudgetCategory {
+  return MaterialCategoryBudgetMap[category] ?? 'Other'
+}
 export const ConstructionName = ['拆改', '水电', '木工', '瓦工', '油漆', '安装', '软装'] as const
