@@ -6,6 +6,7 @@ import (
 
 	"github.com/home-renovation/platform/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // BudgetRepository 预算项仓储接口。
@@ -16,6 +17,10 @@ type BudgetRepository interface {
 	ListByProjectID(projectID uint) ([]model.BudgetItem, error)
 	Update(item *model.BudgetItem) error
 	Delete(id uint) error
+	// WithTx 返回绑定到给定事务的仓储实例。
+	WithTx(tx *gorm.DB) BudgetRepository
+	// GetByProjectCategoryForUpdate 按项目与类别查询预算项并加行级排他锁（须在事务内使用）。
+	GetByProjectCategoryForUpdate(projectID uint, category string) (*model.BudgetItem, error)
 }
 
 // BudgetFilter 预算查询过滤条件。
@@ -91,4 +96,23 @@ func (r *budgetRepository) Delete(id uint) error {
 		return fmt.Errorf("delete budget item %d: %w", id, err)
 	}
 	return nil
+}
+
+func (r *budgetRepository) WithTx(tx *gorm.DB) BudgetRepository {
+	return &budgetRepository{db: tx}
+}
+
+func (r *budgetRepository) GetByProjectCategoryForUpdate(projectID uint, category string) (*model.BudgetItem, error) {
+	var item model.BudgetItem
+	err := r.db.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("project_id = ? AND category = ?", projectID, category).
+		Order("id ASC").
+		First(&item).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("lock budget item by project %d category %s: %w", projectID, category, err)
+	}
+	return &item, nil
 }

@@ -34,6 +34,18 @@ type UpdateMaterialStatusRequest struct {
 	Status string `json:"status" binding:"required,max=32"`
 }
 
+// DeliverMaterialsRequest 批量确认交付请求。
+type DeliverMaterialsRequest struct {
+	IDs []uint `json:"ids" binding:"required,min=1,max=100,dive,gt=0"`
+}
+
+// DeliverMaterialsResultDTO 批量交付入账结果。
+type DeliverMaterialsResultDTO struct {
+	Materials   []MaterialDTO `json:"materials"`
+	Budgets     []BudgetDTO   `json:"budgets"`
+	BookedTotal float64       `json:"booked_total"`
+}
+
 // MaterialDTO 材料展示结构。
 type MaterialDTO struct {
 	ID             uint      `json:"id"`

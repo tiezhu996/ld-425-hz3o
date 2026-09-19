@@ -128,3 +128,22 @@ func (h *MaterialHandler) UpdateStatus(c *gin.Context) {
 	}
 	utils.Success(c, toMaterialDTO(item))
 }
+
+// DeliverBatch 批量确认交付：材料推进为已交付，总价计入对应预算实际金额并重算差异。
+func (h *MaterialHandler) DeliverBatch(c *gin.Context) {
+	var req dto.DeliverMaterialsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(err)
+		return
+	}
+	result, err := h.service.DeliverBatch(req.IDs)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, dto.DeliverMaterialsResultDTO{
+		Materials:   toMaterialDTOList(result.Materials),
+		Budgets:     toBudgetDTOList(result.Budgets),
+		BookedTotal: result.BookedTotal,
+	})
+}

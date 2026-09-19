@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Card, Form, Input, InputNumber, Modal, Select, Space, Table, Typography, message, Statistic } from 'antd'
-import { PlusOutlined, ShoppingCartOutlined } from '@ant-design/icons'
+import { Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography, message, Statistic } from 'antd'
+import { CheckOutlined, PlusOutlined, ShoppingCartOutlined } from '@ant-design/icons'
 import StatusBadge from '@/components/common/StatusBadge'
 import ProgressTag from '@/components/common/ProgressTag'
 import EmptyState from '@/components/common/EmptyState'
@@ -17,13 +17,14 @@ import type { MaterialItem } from '@/types'
 const purchaseSteps = [PurchaseStatus.NotPurchased, PurchaseStatus.Ordered, PurchaseStatus.Delivered, PurchaseStatus.Installed]
 
 export default function MaterialManage() {
-  const { materials, fetchMaterials } = useMaterialStore()
+  const { materials, loading, delivering, fetchMaterials, deliverBatch } = useMaterialStore()
   const { projects, fetchProjects } = useProjectStore()
   const { budgets, fetchBudgets } = useBudgetStore()
   const user = useAuthStore((state) => state.user)
   const [projectId, setProjectId] = useState<number>()
   const [category, setCategory] = useState<string>()
   const [space, setSpace] = useState<string>()
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [createOpen, setCreateOpen] = useState(false)
   const [form] = Form.useForm()
 
@@ -45,7 +46,15 @@ export default function MaterialManage() {
   }, [materials, category, space])
 
   const totalCost = filtered.reduce((sum, item) => sum + item.total_price, 0)
+  const deliveredCost = filtered.reduce(
+    (sum, item) =>
+      item.purchase_status === PurchaseStatus.Delivered || item.purchase_status === PurchaseStatus.Installed
+        ? sum + item.total_price
+        : sum,
+    0,
+  )
   const materialBudget = budgets.filter((b) => b.category === 'Material').reduce((sum, b) => sum + b.budget_amount, 0)
+  const bookedActual = budgets.filter((b) => b.category === 'Material').reduce((sum, b) => sum + b.actual_amount, 0)
 
   const canEdit = user?.role === Role.Admin || user?.role === Role.Designer || user?.role === Role.ProjectManager
   const canProcure = user?.role === Role.Admin || user?.role === Role.Designer || user?.role === Role.Contractor || user?.role === Role.ProjectManager
@@ -70,7 +79,20 @@ export default function MaterialManage() {
     try {
       await updateMaterialStatus(record.id, next)
       message.success('采购状态已更新')
-      await fetchMaterials(projectId)
+      // 推进到已交付会触发预算入账，材料与预算两个 store 都要刷新，保证两页看到同一笔费用。
+      await Promise.all([fetchMaterials(projectId), fetchBudgets(projectId)])
+    } catch (error) {
+      message.error(extractErrorMessage(error))
+    }
+  }
+
+  const onBatchDeliver = async () => {
+    if (selectedIds.length === 0) return
+    try {
+      const result = await deliverBatch(selectedIds)
+      message.success(`已交付入账 ${formatCurrency(result.booked_total)}`)
+      setSelectedIds([])
+      await Promise.all([fetchMaterials(projectId), fetchBudgets(projectId)])
     } catch (error) {
       message.error(extractErrorMessage(error))
     }
@@ -85,7 +107,10 @@ export default function MaterialManage() {
           placeholder="选择项目"
           allowClear
           value={projectId}
-          onChange={setProjectId}
+          onChange={(value) => {
+            setProjectId(value)
+            setSelectedIds([])
+          }}
           options={projects.map((p) => ({ label: p.name, value: p.id }))}
         />
         <Select
@@ -109,12 +134,25 @@ export default function MaterialManage() {
             新增材料
           </Button>
         ) : null}
+        {canProcure ? (
+          <Popconfirm
+            title={`确认将选中的 ${selectedIds.length} 项材料标记为已交付并计入预算实际金额？`}
+            onConfirm={onBatchDeliver}
+            disabled={selectedIds.length === 0}
+          >
+            <Button icon={<CheckOutlined />} disabled={selectedIds.length === 0} loading={delivering}>
+              确认交付入账
+            </Button>
+          </Popconfirm>
+        ) : null}
       </Space>
 
       <Card style={{ marginBottom: 16 }}>
         <Space size="large">
           <Statistic title="材料费用汇总" value={totalCost} precision={2} prefix="¥" />
+          <Statistic title="已交付费用" value={deliveredCost} precision={2} prefix="¥" />
           <Statistic title="材料预算" value={materialBudget} precision={2} prefix="¥" />
+          <Statistic title="预算已入账实际" value={bookedActual} precision={2} prefix="¥" />
         </Space>
       </Card>
 
@@ -125,6 +163,14 @@ export default function MaterialManage() {
           <Table
             rowKey="id"
             dataSource={filtered}
+            loading={loading}
+            rowSelection={{
+              selectedRowKeys: selectedIds,
+              onChange: (keys) => setSelectedIds(keys as number[]),
+              getCheckboxProps: (record: MaterialItem) => ({
+                disabled: record.purchase_status !== PurchaseStatus.Ordered,
+              }),
+            }}
             pagination={{ pageSize: 10 }}
             columns={[
               { title: '材料名称', dataIndex: 'name' },
@@ -143,6 +189,7 @@ export default function MaterialManage() {
                     <Button
                       size="small"
                       icon={<ShoppingCartOutlined />}
+                      disabled={delivering}
                       onClick={() => advanceStatus(record)}
                     >
                       推进采购

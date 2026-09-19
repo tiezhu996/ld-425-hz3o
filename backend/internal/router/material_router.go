@@ -11,6 +11,7 @@ func registerMaterialRoutes(group *gin.RouterGroup, h *handler.MaterialHandler, 
 	group.GET("/materials", auth, h.List)
 	group.GET("/materials/:id", auth, h.Get)
 	group.POST("/materials", auth, rbac(constants.RoleAdmin, constants.RoleDesigner, constants.RoleProjectManager), h.Create)
+	group.POST("/materials/deliver", auth, rbac(constants.RoleAdmin, constants.RoleDesigner, constants.RoleContractor, constants.RoleProjectManager), h.DeliverBatch)
 	group.PUT("/materials/:id", auth, rbac(constants.RoleAdmin, constants.RoleDesigner, constants.RoleContractor, constants.RoleProjectManager), h.Update)
 	group.DELETE("/materials/:id", auth, rbac(constants.RoleAdmin), h.Delete)
 	group.PUT("/materials/:id/status", auth, rbac(constants.RoleAdmin, constants.RoleDesigner, constants.RoleContractor, constants.RoleProjectManager), h.UpdateStatus)

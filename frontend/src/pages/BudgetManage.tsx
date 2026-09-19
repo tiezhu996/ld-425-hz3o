@@ -12,7 +12,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { createBudget } from '@/api/budget'
 import { extractErrorMessage } from '@/utils/request'
 import { formatCurrency } from '@/utils/formatBudget'
-import { BudgetCategory, Role } from '@/types/enums'
+import { BudgetCategory, PurchaseStatus, Role } from '@/types/enums'
 import type { BudgetItem } from '@/types'
 
 export default function BudgetManage() {
@@ -41,6 +41,14 @@ export default function BudgetManage() {
   const totalBudget = filtered.reduce((sum, item) => sum + item.budget_amount, 0)
   const totalActual = filtered.reduce((sum, item) => sum + item.actual_amount, 0)
   const totalMaterialCost = materials.filter((m) => !projectId || m.project_id === projectId).reduce((sum, m) => sum + m.total_price, 0)
+  // 已交付材料费用：与材料页“已交付费用”同源，交付入账后两页刷新看到同一笔费用。
+  const deliveredMaterialCost = materials
+    .filter(
+      (m) =>
+        (!projectId || m.project_id === projectId) &&
+        (m.purchase_status === PurchaseStatus.Delivered || m.purchase_status === PurchaseStatus.Installed),
+    )
+    .reduce((sum, m) => sum + m.total_price, 0)
 
   const overBudgetItems = filtered.filter((item) => item.variance > 0)
 
@@ -98,6 +106,7 @@ export default function BudgetManage() {
         <StatCard title="预算总额" value={totalBudget} prefix="¥" />
         <StatCard title="实际花费" value={totalActual} prefix="¥" />
         <StatCard title="材料费用" value={totalMaterialCost} prefix="¥" />
+        <StatCard title="已交付材料费用" value={deliveredMaterialCost} prefix="¥" />
       </Space>
 
       <Card title="预算 vs 实际" style={{ marginBottom: 16 }}>

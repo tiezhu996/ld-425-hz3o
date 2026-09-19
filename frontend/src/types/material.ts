@@ -1,4 +1,5 @@
 import type { PurchaseStatus } from './enums'
+import type { BudgetItem } from './budget'
 
 export interface MaterialItem {
   id: number
@@ -29,4 +30,16 @@ export interface CreateMaterialRequest {
   unit_price?: number
   supplier?: string
   space?: string
+}
+
+// 批量确认交付请求：一批材料从已订货推进到已交付。
+export interface DeliverMaterialsRequest {
+  ids: number[]
+}
+
+// 批量交付入账结果：材料状态与预算实际金额同事务更新后的快照。
+export interface DeliverMaterialsResult {
+  materials: MaterialItem[]
+  budgets: BudgetItem[]
+  booked_total: number
 }

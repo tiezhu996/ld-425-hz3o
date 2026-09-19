@@ -38,6 +38,28 @@ const (
 	PurchaseStatusInstalled    = "Installed"
 )
 
+// MaterialCategory 材料品类。
+const (
+	MaterialCategoryTile     = "瓷砖"
+	MaterialCategoryFlooring = "地板"
+	MaterialCategoryPaint    = "油漆"
+	MaterialCategoryLighting = "灯具"
+	MaterialCategorySanitary = "卫浴"
+	MaterialCategoryHardware = "五金"
+	MaterialCategoryBoard    = "板材"
+	MaterialCategoryOther    = "其他"
+)
+
+// BudgetCategory 预算类别。
+const (
+	BudgetCategoryDesign    = "Design"
+	BudgetCategoryMaterial  = "Material"
+	BudgetCategoryLabor     = "Labor"
+	BudgetCategoryFurniture = "Furniture"
+	BudgetCategoryAppliance = "Appliance"
+	BudgetCategoryOther     = "Other"
+)
+
 // ProjectStatus 项目状态。
 const (
 	ProjectStatusDesigning  = "Designing"
@@ -87,6 +109,14 @@ var (
 	PurchaseStatuses = []string{
 		PurchaseStatusNotPurchased, PurchaseStatusOrdered, PurchaseStatusDelivered, PurchaseStatusInstalled,
 	}
+	MaterialCategories = []string{
+		MaterialCategoryTile, MaterialCategoryFlooring, MaterialCategoryPaint, MaterialCategoryLighting,
+		MaterialCategorySanitary, MaterialCategoryHardware, MaterialCategoryBoard, MaterialCategoryOther,
+	}
+	BudgetCategories = []string{
+		BudgetCategoryDesign, BudgetCategoryMaterial, BudgetCategoryLabor,
+		BudgetCategoryFurniture, BudgetCategoryAppliance, BudgetCategoryOther,
+	}
 	ProjectStatuses = []string{
 		ProjectStatusDesigning, ProjectStatusQuoting, ProjectStatusInProgress, ProjectStatusCompleted, ProjectStatusArchived,
 	}
@@ -96,6 +126,24 @@ var (
 	AcceptanceStatuses = []string{AcceptanceStatusPending, AcceptanceStatusPassed, AcceptanceStatusFailed}
 	Roles              = []string{RoleAdmin, RoleDesigner, RoleContractor, RoleOwner, RoleProjectManager}
 )
+
+// materialCategoryBudgetMap 材料品类 → 预算类别映射：主材计入 Material，其他材料计入 Other。
+var materialCategoryBudgetMap = map[string]string{
+	MaterialCategoryTile:     BudgetCategoryMaterial,
+	MaterialCategoryFlooring: BudgetCategoryMaterial,
+	MaterialCategoryPaint:    BudgetCategoryMaterial,
+	MaterialCategoryLighting: BudgetCategoryMaterial,
+	MaterialCategorySanitary: BudgetCategoryMaterial,
+	MaterialCategoryHardware: BudgetCategoryMaterial,
+	MaterialCategoryBoard:    BudgetCategoryMaterial,
+	MaterialCategoryOther:    BudgetCategoryOther,
+}
+
+// BudgetCategoryForMaterial 返回材料品类对应的预算类别；未定义映射时 ok=false。
+func BudgetCategoryForMaterial(materialCategory string) (string, bool) {
+	category, ok := materialCategoryBudgetMap[materialCategory]
+	return category, ok
+}
 
 // Contains 判断字符串是否在集合内。
 func Contains(items []string, value string) bool {

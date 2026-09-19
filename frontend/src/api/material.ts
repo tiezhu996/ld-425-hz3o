@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '@/utils/request'
-import type { CreateMaterialRequest, MaterialItem, PageResult } from '@/types'
+import type { CreateMaterialRequest, DeliverMaterialsResult, MaterialItem, PageResult } from '@/types'
 import { API_PATHS } from '@/constants/apiPaths'
 
 export function listMaterials(params?: Record<string, unknown>): Promise<PageResult<MaterialItem> | MaterialItem[]> {
@@ -24,4 +24,9 @@ export function deleteMaterial(id: number): Promise<void> {
 
 export function updateMaterialStatus(id: number, status: string): Promise<MaterialItem> {
   return apiPut<MaterialItem>(`${API_PATHS.materials}/${id}/status`, { status })
+}
+
+// 批量确认交付：后端同事务推进材料状态并把总价计入对应预算实际金额。
+export function deliverMaterials(ids: number[]): Promise<DeliverMaterialsResult> {
+  return apiPost<DeliverMaterialsResult>(`${API_PATHS.materials}/deliver`, { ids })
 }

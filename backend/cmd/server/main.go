@@ -51,7 +51,7 @@ func main() {
 	auditSvc := service.NewAuditService(auditRepo, log)
 	projectSvc := service.NewProjectService(projectRepo, log)
 	designSvc := service.NewDesignService(designRepo, log)
-	materialSvc := service.NewMaterialService(materialRepo, log)
+	materialSvc := service.NewMaterialService(materialRepo, budgetRepo, log)
 	budgetSvc := service.NewBudgetService(budgetRepo, log)
 	constructionSvc := service.NewConstructionService(constructionRepo, log)
 
